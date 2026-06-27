@@ -13,7 +13,7 @@ export type MagBand = {
 
 // Escala alineada con las variables --r1..--r5 de styles.css
 export const MAG_BANDS: MagBand[] = [
-  { min: 7.0, color: "#6E0E0A", label: "Mayor", zoneRadiusKm: 180, feltRadiusKm: 520 },
+  { min: 7.0, color: "#6E0E0A", label: "Mayor", zoneRadiusKm: 162, feltRadiusKm: 468 },
   { min: 6.0, color: "#9E1B12", label: "Fuerte", zoneRadiusKm: 120, feltRadiusKm: 350 },
   { min: 5.0, color: "#CC2B1D", label: "Moderado", zoneRadiusKm: 70, feltRadiusKm: 200 },
   { min: 4.0, color: "#E5603A", label: "Ligero", zoneRadiusKm: 35, feltRadiusKm: 100 },

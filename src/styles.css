@@ -273,8 +273,8 @@ body {
 }
 
 .legend__ring--felt {
-  background: rgba(204, 43, 29, 0.08);
-  border: 1px dashed rgba(204, 43, 29, 0.45);
+  background: rgba(204, 43, 29, 0.15);
+  border: 1px dashed rgba(204, 43, 29, 0.6);
 }
 
 /* ---------- Panel (paper log) ---------- */
@@ -313,6 +313,35 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--paper-ink);
+}
+
+/* Botón para plegar/desplegar el panel (solo actúa en teléfono). */
+.panel__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.panel__chevron {
+  display: none;
+  font-size: 13px;
+  color: var(--paper-muted);
+}
+
+.panel__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .toggle {
@@ -830,60 +859,107 @@ body {
 
 /* ---------- Responsive ---------- */
 @media (max-width: 820px) {
-  /* En móvil la página entera hace scroll: el mapa tiene altura fija y la lista
-     se expande completa debajo (sin scroll interno que se colapse). */
+  /* En móvil el mapa ocupa toda la pantalla y el panel es una hoja inferior
+     (bottom sheet) que se despliega hacia arriba sin empujar contenido. */
   html,
   body,
   #root {
-    height: auto;
+    height: 100%;
   }
   .app {
-    height: auto;
-    min-height: 100%;
+    height: 100%;
   }
-  /* Cabecera apilada en móvil: nada fuerza desbordamiento horizontal. */
+  /* Cabecera compacta en teléfono: contadores en 2 columnas y botones debajo. */
   .head {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
-    padding: 12px 16px;
+    gap: 7px;
+    padding: 9px 14px;
   }
   .head__title {
-    font-size: 24px;
+    font-size: 20px;
   }
   .ticker {
     width: 100%;
     min-width: 0;
-    height: 34px;
+    height: 24px;
   }
   .head__stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
     width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 10px 16px;
+    align-items: stretch;
   }
   .stat {
     align-items: flex-start;
   }
-  .refresh {
-    flex-shrink: 0;
+  .stat__num {
+    font-size: 20px;
   }
+  .refresh {
+    width: 100%;
+    justify-content: center;
+    min-height: 42px;
+  }
+  /* El mapa llena el área bajo la cabecera; el panel se superpone. */
   .grid {
     display: block;
+    position: relative;
   }
   .map {
-    height: 60vh;
-    min-height: 320px;
+    position: absolute;
+    inset: 0;
+    height: auto;
   }
+  .legend {
+    bottom: 84px; /* despeja la barra plegada del panel */
+  }
+
+  /* Panel = hoja inferior fija sobre el viewport. */
   .panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0; /* siempre alto completo; se desliza con transform */
+    z-index: 30;
     border-left: none;
     border-top: 1px solid var(--line);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.45);
+    transform: translateY(0); /* desplegado: ocupa toda la pantalla */
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    will-change: transform;
+  }
+  .panel.is-collapsed {
+    /* plegado: se desliza hacia abajo dejando solo la cabecera visible */
+    transform: translateY(calc(100% - 84px));
+  }
+
+  .panel__toggle {
+    cursor: pointer;
+  }
+  .panel__chevron {
+    display: inline;
+  }
+
+  /* El cuerpo (lista + tendencia) hace scroll DENTRO de la hoja. */
+  .panel__body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .panel__scroll {
     overflow: visible;
+    flex: 0 0 auto;
   }
   .trend {
     padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: none;
   }
 }

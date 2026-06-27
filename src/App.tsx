@@ -23,6 +23,12 @@ export default function App() {
   const now = Date.now();
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // En teléfono arranca plegado (se ve el mapa); en escritorio, desplegado.
+  const [collapsed, setCollapsed] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 820px)").matches,
+  );
 
   const activeQuakes = useMemo(
     () => quakes.filter((q) => isActive(q, now)),
@@ -50,8 +56,19 @@ export default function App() {
     [filter, activeQuakes, selectedQuake],
   );
 
-  const selectQuake = (id: string) =>
-    setSelectedId((prev) => (prev === id ? null : id));
+  const isMobile = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 820px)").matches;
+
+  const selectQuake = (id: string) => {
+    const next = selectedId === id ? null : id;
+    setSelectedId(next);
+    // En teléfono, al seleccionar un sismo se pliega el panel y se sube al mapa.
+    if (next && isMobile()) {
+      setCollapsed(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   // Avisos de "sismo reportado" (posteriores, no predicción).
   const alerts = useQuakeAlerts(quakes, newIds);
@@ -114,7 +131,7 @@ export default function App() {
             {alerts.enabled
               ? alerts.permission === "denied"
                 ? "🔔 Avisos (solo en pantalla)"
-                : "🔔 Avisos on"
+                : "🔔 Avisos"
               : "🔔 Avisos"}
           </button>
         </div>
@@ -132,16 +149,27 @@ export default function App() {
           {mapQuakes.length === 0 && status !== "loading" && (
             <div className="maphint">
               {filter === "active"
-                ? `Sin sismos en los últimos ${ACTIVE_WINDOW_LABEL}. Cambia a “Todos” y selecciona un sismo para ver cómo afectó.`
+                ? `Sin sismos reportados en los últimos ${ACTIVE_WINDOW_LABEL}. Cambia a “Todos” y selecciona un sismo para ver cómo afectó.`
                 : "Selecciona un sismo de la lista para verlo en el mapa."}
             </div>
           )}
         </section>
 
-        <aside className="panel">
+        <aside className={`panel${collapsed ? " is-collapsed" : ""}`}>
           <div className="panel__head">
             <div className="panel__headrow">
-              <h2 className="panel__title">Registro de eventos</h2>
+              <button
+                type="button"
+                className="panel__toggle"
+                aria-expanded={!collapsed}
+                aria-controls="panel-body"
+                onClick={() => setCollapsed((c) => !c)}
+              >
+                <h2 className="panel__title">Registro de eventos</h2>
+                <span className="panel__chevron" aria-hidden>
+                  {collapsed ? "▸" : "▾"}
+                </span>
+              </button>
               <div className="toggle" role="group" aria-label="Filtrar eventos">
                 <button
                   type="button"
@@ -165,28 +193,30 @@ export default function App() {
               {status === "error"
                 ? "No se pudo contactar a USGS. Reintentando…"
                 : `${listed.length} ${
-                    filter === "active" ? `activos (${ACTIVE_WINDOW_LABEL})` : "en 7 días"
+                    filter === "active" ? `activos` : "en 7 días"
                   } · USGS ${lastStr}`}
             </span>
           </div>
-          <div className="panel__scroll">
-            {status === "loading" && quakes.length === 0 ? (
-              <p className="empty">Cargando datos de USGS…</p>
-            ) : (
-              <QuakeList
-                quakes={listed}
-                newIds={newIds}
-                selectedId={selectedId}
-                onSelect={selectQuake}
-                emptyMessage={
-                  filter === "active"
-                    ? `Sin sismos activos en los últimos ${ACTIVE_WINDOW_LABEL}.`
-                    : undefined
-                }
-              />
-            )}
+          <div id="panel-body" className="panel__body">
+            <div className="panel__scroll">
+              {status === "loading" && quakes.length === 0 ? (
+                <p className="empty">Cargando datos de USGS…</p>
+              ) : (
+                <QuakeList
+                  quakes={listed}
+                  newIds={newIds}
+                  selectedId={selectedId}
+                  onSelect={selectQuake}
+                  emptyMessage={
+                    filter === "active"
+                      ? `Sin sismos activos en los últimos ${ACTIVE_WINDOW_LABEL}.`
+                      : undefined
+                  }
+                />
+              )}
+            </div>
+            <QuakeTrend quakes={quakes} />
           </div>
-          <QuakeTrend quakes={quakes} />
         </aside>
       </main>
     </div>

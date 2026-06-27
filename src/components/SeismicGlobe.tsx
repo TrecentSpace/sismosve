@@ -89,12 +89,14 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
         data: citiesFC(VENEZUELA_CITIES, new Map()),
       });
 
-      // Alcance percibido (círculo exterior, muy suave) — hasta dónde se sintió.
+      // Alcance percibido (círculo exterior) — hasta dónde se sintió. Más visible
+      // que antes sobre el fondo oscuro, pero siempre por debajo de la zona
+      // principal (interior).
       map.addLayer({
         id: "felt-fill",
         type: "fill",
         source: "felt",
-        paint: { "fill-color": ["get", "color"], "fill-opacity": 0.08 },
+        paint: { "fill-color": ["get", "color"], "fill-opacity": 0.15 },
       });
       map.addLayer({
         id: "felt-line",
@@ -102,9 +104,9 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
         source: "felt",
         paint: {
           "line-color": ["get", "color"],
-          "line-width": 1,
-          "line-opacity": 0.35,
-          "line-dasharray": [2, 3],
+          "line-width": 1.4,
+          "line-opacity": 0.6,
+          "line-dasharray": [2, 2],
         },
       });
 
