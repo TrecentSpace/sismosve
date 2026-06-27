@@ -186,7 +186,9 @@ export default function App() {
               </div>
             </div>
           )}
-          <MagnitudeLegend />
+          {(viewMode === "area" || shakemaps.size === 0 || mapQuakes.length === 0) && (
+            <MagnitudeLegend />
+          )}
           {mapQuakes.length === 0 && status !== "loading" && (
             <div className="maphint">
               {filter === "active"
