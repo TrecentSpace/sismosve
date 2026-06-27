@@ -47,3 +47,24 @@ export function feltRadiusKm(mag: number): number {
 export function hasZone(mag: number): boolean {
   return mag >= 2.5;
 }
+
+// Radio ajustado por profundidad para la zona de mayor afectación.
+// Los valores base se calibraron para foco superficial (≈10 km). La distancia
+// hipocentrales la que determina el daño: R_surface = sqrt(R_hypo² - depth²).
+// Sismos profundos concentran menos energía cerca de la superficie; muy
+// superficiales la concentran más. Mínimo: 20 % del radio base.
+export function depthAdjustedZoneRadiusKm(mag: number, depthKm: number): number {
+  const base = zoneRadiusKm(mag);
+  const REF_DEPTH = 10;
+  const rHypo = Math.sqrt(base ** 2 + REF_DEPTH ** 2);
+  const rSurface = Math.sqrt(Math.max(0, rHypo ** 2 - depthKm ** 2));
+  return Math.max(rSurface, base * 0.2);
+}
+
+// Radio ajustado por profundidad para el alcance percibido.
+// Los sismos profundos se perciben sobre un área mayor porque las ondas viajan
+// por roca sólida con menos atenuación.
+export function depthAdjustedFeltRadiusKm(mag: number, depthKm: number): number {
+  const base = feltRadiusKm(mag);
+  return base * Math.sqrt(1 + depthKm / 50);
+}

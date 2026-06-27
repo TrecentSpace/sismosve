@@ -55,6 +55,14 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
+.head__toprow {
+  display: contents; /* transparente en el grid de escritorio */
+}
+
+.head__collapser {
+  display: none; /* solo visible en móvil (ver @media) */
+}
+
 .head__brand {
   display: flex;
   flex-direction: column;
@@ -177,6 +185,14 @@ body {
 .globe {
   position: absolute;
   inset: 0;
+}
+
+/* ---------- Map mode toggle ---------- */
+.map-mode-toggle {
+  position: absolute;
+  bottom: 150px;
+  left: 12px;
+  z-index: 2;
 }
 
 /* ---------- Map hint ---------- */
@@ -910,6 +926,36 @@ body {
     gap: 7px;
     padding: 9px 14px;
   }
+  /* Fila superior: marca + botón de plegar */
+  .head__toprow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .head__collapser {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: #8a8473;
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .head__collapser:hover {
+    border-color: var(--r2);
+    color: var(--r1);
+  }
+  /* Estado plegado: ocultar ticker y stats */
+  .head.is-collapsed .ticker,
+  .head.is-collapsed .head__stats {
+    display: none;
+  }
   .head__title {
     font-size: 20px;
   }
@@ -948,6 +994,12 @@ body {
   }
   .legend {
     bottom: 84px; /* despeja la barra plegada del panel */
+  }
+  .map-mode-toggle {
+    bottom: auto;
+    top: 12px;
+    left: auto;
+    right: 12px;
   }
 
   /* Panel = hoja inferior fija sobre el viewport. */

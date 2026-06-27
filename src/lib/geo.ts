@@ -3,7 +3,7 @@
 
 import type { City } from "../data/venezuelaCities";
 import type { Quake } from "./usgs";
-import { zoneRadiusKm } from "./magnitude";
+import { depthAdjustedZoneRadiusKm } from "./magnitude";
 
 const R_EARTH_KM = 6371;
 
@@ -39,7 +39,7 @@ export function cityImpacts(
     let best: CityImpact | null = null;
     for (const q of activeQuakes) {
       const d = haversineKm(city.lat, city.lon, q.lat, q.lon);
-      if (d <= zoneRadiusKm(q.mag)) {
+      if (d <= depthAdjustedZoneRadiusKm(q.mag, q.depthKm)) {
         if (!best || q.mag > best.quake.mag) {
           best = { city, quake: q, distanceKm: d };
         }

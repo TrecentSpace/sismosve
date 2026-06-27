@@ -15,6 +15,7 @@ import InfoModal from "./components/InfoModal";
 import AutoRefresh from "./components/AutoRefresh";
 import Toasts from "./components/Toasts";
 import { useQuakeAlerts } from "./lib/useQuakeAlerts";
+import { useShakeMaps } from "./lib/useShakeMaps";
 
 type Filter = "all" | "active";
 
@@ -24,6 +25,8 @@ export default function App() {
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // En teléfono arranca plegado (se ve el mapa); en escritorio, desplegado.
+  const [viewMode, setViewMode] = useState<"area" | "shakemap">("shakemap");
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [collapsed, setCollapsed] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -70,6 +73,9 @@ export default function App() {
     }
   };
 
+  // ShakeMaps del USGS para sismos M5+ visibles en el mapa.
+  const shakemaps = useShakeMaps(mapQuakes);
+
   // Avisos de "sismo reportado" (posteriores, no predicción).
   const alerts = useQuakeAlerts(quakes, newIds);
   const impacts = useMemo(
@@ -96,10 +102,21 @@ export default function App() {
     <div className="app">
       <AutoRefresh />
       <InfoModal />
-      <header className="head">
-        <div className="head__brand">
-          <span className="head__eyebrow">Monitor sísmico · Venezuela</span>
-          <h1 className="head__title">SISMO·VE</h1>
+      <header className={`head${headerCollapsed ? " is-collapsed" : ""}`}>
+        <div className="head__toprow">
+          <div className="head__brand">
+            <span className="head__eyebrow">Monitor sísmico · Venezuela</span>
+            <h1 className="head__title">SISMO·VE</h1>
+          </div>
+          <button
+            type="button"
+            className="head__collapser"
+            aria-expanded={!headerCollapsed}
+            aria-label={headerCollapsed ? "Expandir cabecera" : "Contraer cabecera"}
+            onClick={() => setHeaderCollapsed((c) => !c)}
+          >
+            {headerCollapsed ? "▴" : "▾"}
+          </button>
         </div>
         <LiveTicker spikeKey={newIds.size} spikeMag={spikeMag} />
         <div className="head__stats">
@@ -144,7 +161,31 @@ export default function App() {
             quakes={mapQuakes}
             impacts={impacts}
             focusQuake={selectedQuake}
+            shakemaps={shakemaps}
+            viewMode={viewMode}
           />
+          {shakemaps.size > 0 && mapQuakes.length > 0 && (
+            <div className="map-mode-toggle">
+              <div className="toggle" role="group" aria-label="Modo de visualización">
+                <button
+                  type="button"
+                  className={`toggle__btn${viewMode === "area" ? " is-on" : ""}`}
+                  aria-pressed={viewMode === "area"}
+                  onClick={() => setViewMode("area")}
+                >
+                  Área
+                </button>
+                <button
+                  type="button"
+                  className={`toggle__btn${viewMode === "shakemap" ? " is-on" : ""}`}
+                  aria-pressed={viewMode === "shakemap"}
+                  onClick={() => setViewMode("shakemap")}
+                >
+                  Detallado
+                </button>
+              </div>
+            </div>
+          )}
           <MagnitudeLegend />
           {mapQuakes.length === 0 && status !== "loading" && (
             <div className="maphint">

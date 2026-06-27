@@ -6,7 +6,12 @@ import type { FeatureCollection, Feature, Point, Polygon } from "geojson";
 import type { City } from "../data/venezuelaCities";
 import type { Quake } from "./usgs";
 import type { CityImpact } from "./geo";
-import { colorFor, feltRadiusKm, zoneRadiusKm, hasZone } from "./magnitude";
+import {
+  colorFor,
+  depthAdjustedFeltRadiusKm,
+  depthAdjustedZoneRadiusKm,
+  hasZone,
+} from "./magnitude";
 
 // Polígono que aproxima un círculo geográfico de `radiusKm` alrededor de un
 // punto (corrige la longitud por la latitud).
@@ -48,35 +53,58 @@ export function citiesFC(
   return { type: "FeatureCollection", features };
 }
 
-// Zona de mayor afectación (círculo interior, sólido).
-export function zonesFC(activeQuakes: Quake[]): FeatureCollection<Polygon> {
+// Zona de mayor afectación (círculo interior). Radio ajustado por profundidad:
+// sismos superficiales dañan un área mayor; profundos la concentran menos.
+// Se excluyen sismos que ya tienen ShakeMap (skipIds) para evitar duplicar.
+export function zonesFC(
+  activeQuakes: Quake[],
+  skipIds: Set<string> = new Set(),
+): FeatureCollection<Polygon> {
   const features: Feature<Polygon>[] = activeQuakes
-    .filter((q) => hasZone(q.mag))
+    .filter((q) => hasZone(q.mag) && !skipIds.has(q.id))
     .map((q) => ({
       type: "Feature",
       geometry: {
         type: "Polygon",
-        coordinates: [circleCoords(q.lat, q.lon, zoneRadiusKm(q.mag))],
+        coordinates: [
+          circleCoords(
+            q.lat,
+            q.lon,
+            depthAdjustedZoneRadiusKm(q.mag, q.depthKm),
+          ),
+        ],
       },
       properties: { color: colorFor(q.mag), mag: q.mag },
     }));
   return { type: "FeatureCollection", features };
 }
 
-// Alcance percibido (círculo exterior, suave) — hasta dónde se llegó a sentir.
-export function feltFC(activeQuakes: Quake[]): FeatureCollection<Polygon> {
+// Alcance percibido (círculo exterior). Los sismos profundos se sienten sobre
+// un área mayor porque las ondas viajan con menos atenuación por roca sólida.
+export function feltFC(
+  activeQuakes: Quake[],
+  skipIds: Set<string> = new Set(),
+): FeatureCollection<Polygon> {
   const features: Feature<Polygon>[] = activeQuakes
-    .filter((q) => hasZone(q.mag))
+    .filter((q) => hasZone(q.mag) && !skipIds.has(q.id))
     .map((q) => ({
       type: "Feature",
       geometry: {
         type: "Polygon",
-        coordinates: [circleCoords(q.lat, q.lon, feltRadiusKm(q.mag), 64)],
+        coordinates: [
+          circleCoords(
+            q.lat,
+            q.lon,
+            depthAdjustedFeltRadiusKm(q.mag, q.depthKm),
+            64,
+          ),
+        ],
       },
       properties: { color: colorFor(q.mag), mag: q.mag },
     }));
   return { type: "FeatureCollection", features };
 }
+
 
 export function epicentersFC(activeQuakes: Quake[]): FeatureCollection<Point> {
   const features: Feature<Point>[] = activeQuakes.map((q) => ({

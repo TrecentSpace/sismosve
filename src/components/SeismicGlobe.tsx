@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
-import maplibregl, { type Map as MlMap, type GeoJSONSource } from "maplibre-gl";
+import maplibregl, { type Map as MlMap, type GeoJSONSource, type ImageSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { VENEZUELA_CITIES } from "../data/venezuelaCities";
 import type { Quake } from "../lib/usgs";
 import type { CityImpact } from "../lib/geo";
 import { citiesFC, epicentersFC, feltFC, zonesFC } from "../lib/geojson";
 import { maskFC, outlineFC } from "../lib/countryMask";
+import { EMPTY_IMAGE, type ShakeMapOverlay } from "../lib/shakemap";
 
-// Estilo oscuro gratuito de CARTO (vector, sin token).
 const STYLE_URL =
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
@@ -15,25 +15,32 @@ const reducedMotion =
   typeof window !== "undefined" &&
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
+// Coordenadas dummy para inicializar el source de imagen antes de tener datos.
+const EMPTY_COORDS: [[number,number],[number,number],[number,number],[number,number]] =
+  [[-180, 85], [180, 85], [180, -85], [-180, -85]];
+
 type Props = {
   quakes: Quake[];
   impacts: Map<string, CityImpact>;
   focusQuake?: Quake | null;
+  shakemaps?: Map<string, ShakeMapOverlay>;
+  viewMode?: "area" | "shakemap";
 };
 
-export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
+export default function SeismicGlobe({ quakes, impacts, focusQuake, shakemaps = new Map(), viewMode = "shakemap" }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const readyRef = useRef(false);
 
-  // Mantiene los datos más recientes accesibles para pushData(), que también se
-  // llama desde el handler style.load (registrado una sola vez al montar).
   const quakesRef = useRef(quakes);
   const impactsRef = useRef(impacts);
+  const shakemapsRef = useRef(shakemaps);
+  const viewModeRef = useRef(viewMode);
   quakesRef.current = quakes;
   impactsRef.current = impacts;
+  shakemapsRef.current = shakemaps;
+  viewModeRef.current = viewMode;
 
-  // Inicializa el mapa una sola vez.
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
@@ -47,14 +54,10 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 
     map.on("style.load", () => {
-      // Proyección de globo 3D (MapLibre GL JS v5+).
       try {
         map.setProjection({ type: "globe" });
-      } catch {
-        /* fallback a mercator si no está disponible */
-      }
+      } catch { /* fallback mercator */ }
 
-      // Resalta Venezuela: oscurece el resto del mundo y dibuja su contorno.
       map.addSource("ven-mask", { type: "geojson", data: maskFC() });
       map.addSource("ven-outline", { type: "geojson", data: outlineFC() });
       map.addLayer({
@@ -67,18 +70,29 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
         id: "ven-outline-glow",
         type: "line",
         source: "ven-outline",
-        paint: {
-          "line-color": "#F2A38B",
-          "line-width": 4,
-          "line-blur": 4,
-          "line-opacity": 0.45,
-        },
+        paint: { "line-color": "#F2A38B", "line-width": 4, "line-blur": 4, "line-opacity": 0.45 },
       });
       map.addLayer({
         id: "ven-outline-line",
         type: "line",
         source: "ven-outline",
         paint: { "line-color": "#F4EFE4", "line-width": 1.1, "line-opacity": 0.8 },
+      });
+
+      // Overlay raster del ShakeMap (intensity_overlay.png del USGS, con transparencia).
+      map.addSource("shakemap-overlay", {
+        type: "image",
+        url: EMPTY_IMAGE,
+        coordinates: EMPTY_COORDS,
+      });
+      map.addLayer({
+        id: "shakemap-raster",
+        type: "raster",
+        source: "shakemap-overlay",
+        paint: {
+          "raster-opacity": 0,
+          "raster-fade-duration": 300,
+        },
       });
 
       map.addSource("felt", { type: "geojson", data: feltFC([]) });
@@ -89,9 +103,6 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
         data: citiesFC(VENEZUELA_CITIES, new Map()),
       });
 
-      // Alcance percibido (círculo exterior) — hasta dónde se sintió. Más visible
-      // que antes sobre el fondo oscuro, pero siempre por debajo de la zona
-      // principal (interior).
       map.addLayer({
         id: "felt-fill",
         type: "fill",
@@ -110,7 +121,6 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
         },
       });
 
-      // Zona afectada (relleno translúcido + borde).
       map.addLayer({
         id: "zones-fill",
         type: "fill",
@@ -121,14 +131,9 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
         id: "zones-line",
         type: "line",
         source: "zones",
-        paint: {
-          "line-color": ["get", "color"],
-          "line-width": 1.2,
-          "line-opacity": 0.7,
-        },
+        paint: { "line-color": ["get", "color"], "line-width": 1.2, "line-opacity": 0.7 },
       });
 
-      // Pulso para sismos fuertes (M >= 5).
       map.addLayer({
         id: "epicenters-pulse",
         type: "circle",
@@ -141,27 +146,18 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
         },
       });
 
-      // Epicentro exacto.
       map.addLayer({
         id: "epicenters-dot",
         type: "circle",
         source: "epicenters",
         paint: {
           "circle-color": ["get", "color"],
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["get", "mag"],
-            2, 3,
-            5, 6,
-            7, 10,
-          ],
+          "circle-radius": ["interpolate", ["linear"], ["get", "mag"], 2, 3, 5, 6, 7, 10],
           "circle-stroke-color": "#FFFFFF",
           "circle-stroke-width": 1,
         },
       });
 
-      // Ciudades: punto + etiqueta. Se resalta en rojo si está afectada.
       map.addLayer({
         id: "cities-dot",
         type: "circle",
@@ -185,28 +181,19 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
         layout: {
           "text-field": ["get", "name"],
           "text-font": ["Open Sans Regular", "Noto Sans Regular"],
-          "text-size": [
-            "case",
-            ["==", ["get", "capital"], 1], 12,
-            10,
-          ],
+          "text-size": ["case", ["==", ["get", "capital"], 1], 12, 10],
           "text-offset": [0, 1.1],
           "text-anchor": "top",
           "text-optional": true,
           "text-allow-overlap": false,
         },
         paint: {
-          "text-color": [
-            "case",
-            ["==", ["get", "affected"], 1], "#F2A38B",
-            "#C7BCA9",
-          ],
+          "text-color": ["case", ["==", ["get", "affected"], 1], "#F2A38B", "#C7BCA9"],
           "text-halo-color": "#0E1116",
           "text-halo-width": 1.4,
         },
       });
 
-      // Popup al hacer clic en un epicentro.
       map.on("click", "epicenters-dot", (e) => {
         const f = e.features?.[0];
         if (!f) return;
@@ -222,12 +209,8 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
           )
           .addTo(map);
       });
-      map.on("mouseenter", "epicenters-dot", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "epicenters-dot", () => {
-        map.getCanvas().style.cursor = "";
-      });
+      map.on("mouseenter", "epicenters-dot", () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "epicenters-dot", () => { map.getCanvas().style.cursor = ""; });
 
       readyRef.current = true;
       pushData();
@@ -242,13 +225,28 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Empuja los datos a las fuentes cuando cambian.
   function pushData() {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
     const qs = quakesRef.current ?? [];
-    (map.getSource("felt") as GeoJSONSource)?.setData(feltFC(qs));
-    (map.getSource("zones") as GeoJSONSource)?.setData(zonesFC(qs));
+    const sm = shakemapsRef.current;
+
+    // ShakeMap visible solo si el modo es "shakemap" y hay datos disponibles.
+    const useShakeMap = viewModeRef.current === "shakemap" && sm.size > 0;
+    const skipIds = useShakeMap ? new Set(sm.keys()) : new Set<string>();
+
+    const overlay = useShakeMap ? (sm.values().next().value as ShakeMapOverlay) : null;
+    const imgSrc = map.getSource("shakemap-overlay") as ImageSource | undefined;
+    if (overlay) {
+      imgSrc?.updateImage({ url: overlay.imageUrl, coordinates: overlay.coords });
+      map.setPaintProperty("shakemap-raster", "raster-opacity", 0.75);
+    } else {
+      imgSrc?.updateImage({ url: EMPTY_IMAGE, coordinates: EMPTY_COORDS });
+      map.setPaintProperty("shakemap-raster", "raster-opacity", 0);
+    }
+
+    (map.getSource("felt") as GeoJSONSource)?.setData(feltFC(qs, skipIds));
+    (map.getSource("zones") as GeoJSONSource)?.setData(zonesFC(qs, skipIds));
     (map.getSource("epicenters") as GeoJSONSource)?.setData(epicentersFC(qs));
     (map.getSource("cities") as GeoJSONSource)?.setData(
       citiesFC(VENEZUELA_CITIES, impactsRef.current),
@@ -258,9 +256,8 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
   useEffect(() => {
     pushData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quakes, impacts]);
+  }, [quakes, impacts, shakemaps, viewMode]);
 
-  // Centra el mapa en el sismo seleccionado.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !readyRef.current || !focusQuake) return;
@@ -273,18 +270,15 @@ export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusQuake?.id]);
 
-  // Anima el pulso de los sismos fuertes.
   function startPulse() {
     const map = mapRef.current;
     if (!map || reducedMotion) return;
     let raf = 0;
     const loop = () => {
       if (!mapRef.current || !map.getLayer("epicenters-pulse")) return;
-      const t = (Date.now() % 1600) / 1600; // 0..1
-      const radius = 8 + t * 26;
-      const opacity = 0.4 * (1 - t);
-      map.setPaintProperty("epicenters-pulse", "circle-radius", radius);
-      map.setPaintProperty("epicenters-pulse", "circle-opacity", opacity);
+      const t = (Date.now() % 1600) / 1600;
+      map.setPaintProperty("epicenters-pulse", "circle-radius", 8 + t * 26);
+      map.setPaintProperty("epicenters-pulse", "circle-opacity", 0.4 * (1 - t));
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
