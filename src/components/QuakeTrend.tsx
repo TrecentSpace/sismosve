@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Quake } from "../lib/usgs";
 import { bucketCounts } from "../lib/trend";
 import { useMeasure } from "../lib/useMeasure";
@@ -7,8 +7,17 @@ const HOUR = 3_600_000;
 const WINDOW_MS = 7 * 24 * HOUR; // 7 días
 const BUCKET_MS = 1 * HOUR; // agrupación cada 1 hora
 
-const fmtDay = (ms: number) =>
-  new Date(ms).toLocaleDateString("es-VE", { day: "2-digit", month: "short" });
+const EARTHQUAKE_DAY = 24; // día del terremoto principal (jun 2025)
+const TICK_MS = 60_000; // desliza la ventana de tiempo cada minuto
+
+function useNow(intervalMs: number) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
 
 // Genera una escala "bonita" de ticks enteros para el eje Y. Mantiene un mínimo
 // de margen para que siempre haya varias líneas de referencia que medir.
@@ -30,33 +39,50 @@ type Props = { quakes: Quake[] };
 
 export default function QuakeTrend({ quakes }: Props) {
   const [ref, measured] = useMeasure<HTMLDivElement>();
+  const now = useNow(TICK_MS);
 
   const buckets = useMemo(
-    () => bucketCounts(quakes, BUCKET_MS, WINDOW_MS),
-    [quakes],
+    () => bucketCounts(quakes, BUCKET_MS, WINDOW_MS, now),
+    [quakes, now],
   );
 
   const maxData = Math.max(1, ...buckets.map((b) => b.count));
   const { ticks, top } = yTicks(maxData);
-  const n = buckets.length;
 
   const H = 124;
   const padL = 24;
   const padR = 10;
   const padT = 12;
-  const padB = 22;
+  const padB = 32;
   const w = Math.max(220, measured || 320);
   const innerW = w - padL - padR;
   const innerH = H - padT - padB;
 
-  const xAt = (i: number) => padL + (n <= 1 ? 0 : (i / (n - 1)) * innerW);
+  const windowStart = now - WINDOW_MS;
+  const bucketTime = (b: (typeof buckets)[number]) =>
+    Math.min(b.start + BUCKET_MS / 2, now);
+  const xAtTime = (t: number) =>
+    padL + Math.max(0, Math.min(1, (t - windowStart) / WINDOW_MS)) * innerW;
   const yAt = (c: number) => padT + innerH - (c / top) * innerH;
 
-  const linePts = buckets.map((b, i) => `${xAt(i)},${yAt(b.count)}`).join(" ");
+  const dayTicks: { x: number; day: number; highlight: boolean }[] = [];
+  const d0 = new Date(windowStart);
+  d0.setHours(0, 0, 0, 0);
+  for (let i = 0; i <= 8; i++) {
+    const ms = d0.getTime() + i * 24 * HOUR;
+    if (ms < windowStart || ms > now) continue;
+    const day = new Date(ms).getDate();
+    dayTicks.push({ x: xAtTime(ms), day, highlight: day === EARTHQUAKE_DAY });
+  }
+
+  const visible = buckets.filter((b) => b.start < now);
+  const linePts = visible
+    .map((b) => `${xAtTime(bucketTime(b))},${yAt(b.count)}`)
+    .join(" ");
   const areaPath =
-    `M ${xAt(0)},${padT + innerH} ` +
-    buckets.map((b, i) => `L ${xAt(i)},${yAt(b.count)}`).join(" ") +
-    ` L ${xAt(n - 1)},${padT + innerH} Z`;
+    `M ${xAtTime(windowStart)},${padT + innerH} ` +
+    visible.map((b) => `L ${xAtTime(bucketTime(b))},${yAt(b.count)}`).join(" ") +
+    ` L ${xAtTime(now)},${padT + innerH} Z`;
 
   return (
     <section className="trend" aria-label="Tendencia de sismos">
@@ -96,14 +122,49 @@ export default function QuakeTrend({ quakes }: Props) {
           <path d={areaPath} className="trend__area" />
           <polyline points={linePts} className="trend__line" />
 
-          {/* etiquetas x: inicio y "ahora" */}
-          <text x={padL} y={H - 6} className="trend__xtick">
-            {fmtDay(buckets[0].start)}
-          </text>
-          <text x={w - padR} y={H - 6} className="trend__xtick trend__xtick--end">
-            ahora
-          </text>
+          {dayTicks
+            .filter((t) => t.highlight)
+            .map((t) => (
+              <line
+                key={`mark-${t.day}`}
+                x1={t.x}
+                y1={padT}
+                x2={t.x}
+                y2={padT + innerH}
+                className="trend__vmark"
+              />
+            ))}
+
+          {dayTicks.map((t) =>
+            t.highlight ? (
+              <text
+                key={t.day}
+                x={t.x}
+                y={H - 16}
+                className="trend__xtick trend__xtick--mid trend__xtick--quake"
+              >
+                <tspan x={t.x} dy={0}>
+                  {t.day}
+                </tspan>
+                <tspan x={t.x} dy={11} className="trend__xtick--quake-lbl">
+                  terremoto
+                </tspan>
+              </text>
+            ) : (
+              <text
+                key={t.day}
+                x={t.x}
+                y={H - 6}
+                className="trend__xtick trend__xtick--mid"
+              >
+                {t.day}
+              </text>
+            ),
+          )}
         </svg>
+        <p className="trend__note">
+          Tomando en cuenta sismos de magnitud 4 y más
+        </p>
       </div>
     </section>
   );

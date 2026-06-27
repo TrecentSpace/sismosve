@@ -609,6 +609,39 @@ body {
   text-anchor: end;
 }
 
+.trend__xtick--mid {
+  text-anchor: middle;
+}
+
+.trend__xtick--quake {
+  fill: var(--r3);
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.trend__xtick--quake-lbl {
+  fill: var(--r3);
+  font-weight: 600;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.trend__vmark {
+  stroke: var(--r3);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  opacity: 0.45;
+}
+
+.trend__note {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--paper-muted);
+  text-align: center;
+}
+
 /* ---------- Map popup ---------- */
 .maplibregl-popup-content {
   background: var(--ink-2);
