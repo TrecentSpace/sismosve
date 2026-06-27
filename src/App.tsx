@@ -192,7 +192,7 @@ export default function App() {
           {mapQuakes.length === 0 && status !== "loading" && (
             <div className="maphint">
               {filter === "active"
-                ? `Sin sismos reportados en los últimos ${ACTIVE_WINDOW_LABEL}. Cambia a “Todos” y selecciona un sismo para ver cómo afectó.`
+                ? `Sin sismos reportados en la última ${ACTIVE_WINDOW_LABEL}. Cambia a “Todos” y selecciona un sismo para ver cómo afectó.`
                 : "Selecciona un sismo de la lista para verlo en el mapa."}
             </div>
           )}
@@ -252,7 +252,7 @@ export default function App() {
                   onSelect={selectQuake}
                   emptyMessage={
                     filter === "active"
-                      ? `Sin sismos activos en los últimos ${ACTIVE_WINDOW_LABEL}.`
+                      ? `Sin sismos activos en la última ${ACTIVE_WINDOW_LABEL}.`
                       : undefined
                   }
                 />
