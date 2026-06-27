@@ -5,10 +5,18 @@ import QuakeListItem from "./QuakeListItem";
 type Props = {
   quakes: Quake[];
   newIds: Set<string>;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
   emptyMessage?: string;
 };
 
-export default function QuakeList({ quakes, newIds, emptyMessage }: Props) {
+export default function QuakeList({
+  quakes,
+  newIds,
+  selectedId,
+  onSelect,
+  emptyMessage,
+}: Props) {
   const now = Date.now();
   if (quakes.length === 0) {
     return (
@@ -26,6 +34,8 @@ export default function QuakeList({ quakes, newIds, emptyMessage }: Props) {
           quake={q}
           active={isActive(q, now)}
           isNew={newIds.has(q.id)}
+          selected={q.id === selectedId}
+          onSelect={onSelect}
         />
       ))}
     </ol>

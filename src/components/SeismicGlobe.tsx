@@ -16,14 +16,22 @@ const reducedMotion =
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 type Props = {
-  activeQuakes: Quake[];
+  quakes: Quake[];
   impacts: Map<string, CityImpact>;
+  focusQuake?: Quake | null;
 };
 
-export default function SeismicGlobe({ activeQuakes, impacts }: Props) {
+export default function SeismicGlobe({ quakes, impacts, focusQuake }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const readyRef = useRef(false);
+
+  // Mantiene los datos más recientes accesibles para pushData(), que también se
+  // llama desde el handler style.load (registrado una sola vez al montar).
+  const quakesRef = useRef(quakes);
+  const impactsRef = useRef(impacts);
+  quakesRef.current = quakes;
+  impactsRef.current = impacts;
 
   // Inicializa el mapa una sola vez.
   useEffect(() => {
@@ -236,20 +244,32 @@ export default function SeismicGlobe({ activeQuakes, impacts }: Props) {
   function pushData() {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
-    (map.getSource("felt") as GeoJSONSource)?.setData(feltFC(activeQuakes));
-    (map.getSource("zones") as GeoJSONSource)?.setData(zonesFC(activeQuakes));
-    (map.getSource("epicenters") as GeoJSONSource)?.setData(
-      epicentersFC(activeQuakes),
-    );
+    const qs = quakesRef.current ?? [];
+    (map.getSource("felt") as GeoJSONSource)?.setData(feltFC(qs));
+    (map.getSource("zones") as GeoJSONSource)?.setData(zonesFC(qs));
+    (map.getSource("epicenters") as GeoJSONSource)?.setData(epicentersFC(qs));
     (map.getSource("cities") as GeoJSONSource)?.setData(
-      citiesFC(VENEZUELA_CITIES, impacts),
+      citiesFC(VENEZUELA_CITIES, impactsRef.current),
     );
   }
 
   useEffect(() => {
     pushData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeQuakes, impacts]);
+  }, [quakes, impacts]);
+
+  // Centra el mapa en el sismo seleccionado.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current || !focusQuake) return;
+    map.flyTo({
+      center: [focusQuake.lon, focusQuake.lat],
+      zoom: Math.max(map.getZoom(), 6),
+      duration: 1000,
+      essential: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusQuake?.id]);
 
   // Anima el pulso de los sismos fuertes.
   function startPulse() {

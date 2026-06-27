@@ -179,6 +179,25 @@ body {
   inset: 0;
 }
 
+/* ---------- Map hint ---------- */
+.maphint {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: min(420px, calc(100% - 96px));
+  text-align: center;
+  background: rgba(14, 17, 22, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 9px 14px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #c7bca9;
+  backdrop-filter: blur(4px);
+}
+
 /* ---------- Legend ---------- */
 .legend {
   position: absolute;
@@ -349,13 +368,40 @@ body {
   padding: 0;
 }
 
+.row__item {
+  display: block;
+}
+
 .row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 11px 18px;
+  border: none;
   border-bottom: 1px solid rgba(110, 14, 10, 0.08);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background 0.12s;
+}
+
+.row:hover {
+  background: rgba(110, 14, 10, 0.06);
+}
+
+.row--selected {
+  background: rgba(204, 43, 29, 0.1);
+  box-shadow: inset 3px 0 0 var(--r3);
+}
+
+.row--selected:hover {
+  background: rgba(204, 43, 29, 0.14);
 }
 
 .row--new {
@@ -429,6 +475,12 @@ body {
   color: var(--r5);
   border-color: var(--r3);
   background: rgba(204, 43, 29, 0.08);
+}
+
+.row__state--sel {
+  color: #fff;
+  border-color: var(--r3);
+  background: var(--r3);
 }
 
 .empty {

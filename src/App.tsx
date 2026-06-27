@@ -22,6 +22,7 @@ export default function App() {
   const { quakes, status, lastUpdated, newIds, refresh } = useEarthquakes();
   const now = Date.now();
   const [filter, setFilter] = useState<Filter>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const activeQuakes = useMemo(
     () => quakes.filter((q) => isActive(q, now)),
@@ -31,11 +32,32 @@ export default function App() {
   // Lista visible según el toggle: solo activos o todos los ocurridos.
   const listed = filter === "active" ? activeQuakes : quakes;
 
+  const selectedQuake = useMemo(
+    () => quakes.find((q) => q.id === selectedId) ?? null,
+    [quakes, selectedId],
+  );
+
+  // Qué se ve en el mapa:
+  //  - Activos: todos los sismos en curso (últimos 30 min).
+  //  - Todos: solo el sismo seleccionado (uno a la vez), o nada si no hay.
+  const mapQuakes = useMemo(
+    () =>
+      filter === "active"
+        ? activeQuakes
+        : selectedQuake
+          ? [selectedQuake]
+          : [],
+    [filter, activeQuakes, selectedQuake],
+  );
+
+  const selectQuake = (id: string) =>
+    setSelectedId((prev) => (prev === id ? null : id));
+
   // Avisos de "sismo reportado" (posteriores, no predicción).
   const alerts = useQuakeAlerts(quakes, newIds);
   const impacts = useMemo(
-    () => cityImpacts(VENEZUELA_CITIES, activeQuakes),
-    [activeQuakes],
+    () => cityImpacts(VENEZUELA_CITIES, mapQuakes),
+    [mapQuakes],
   );
 
   // Magnitud del sismo nuevo más fuerte para alimentar el spike del ticker.
@@ -101,8 +123,19 @@ export default function App() {
 
       <main className="grid">
         <section className="map">
-          <SeismicGlobe activeQuakes={activeQuakes} impacts={impacts} />
+          <SeismicGlobe
+            quakes={mapQuakes}
+            impacts={impacts}
+            focusQuake={selectedQuake}
+          />
           <MagnitudeLegend />
+          {mapQuakes.length === 0 && status !== "loading" && (
+            <div className="maphint">
+              {filter === "active"
+                ? `Sin sismos en los últimos ${ACTIVE_WINDOW_LABEL}. Cambia a “Todos” y selecciona un sismo para ver cómo afectó.`
+                : "Selecciona un sismo de la lista para verlo en el mapa."}
+            </div>
+          )}
         </section>
 
         <aside className="panel">
@@ -143,6 +176,8 @@ export default function App() {
               <QuakeList
                 quakes={listed}
                 newIds={newIds}
+                selectedId={selectedId}
+                onSelect={selectQuake}
                 emptyMessage={
                   filter === "active"
                     ? `Sin sismos activos en los últimos ${ACTIVE_WINDOW_LABEL}.`
