@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchVenezuelaQuakes, type Quake } from "./usgs";
 
 const POLL_MS = 60_000; // refetch a USGS cada 60s
-const TICK_MS = 15_000; // re-evaluar la regla de 30 min cada 15s
-const ACTIVE_WINDOW_MS = 30 * 60 * 1000; // 30 minutos
+const TICK_MS = 15_000; // re-evaluar la regla de 1 hora cada 15s
+const ACTIVE_WINDOW_MS = 60 * 60 * 1000; // 1 hora
 
 // Etiqueta legible de la ventana de actividad (para la UI).
-export const ACTIVE_WINDOW_LABEL = "30 min";
+export const ACTIVE_WINDOW_LABEL = "1 hora";
 
 export type FeedStatus = "loading" | "ok" | "error";
 
