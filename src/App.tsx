@@ -22,7 +22,7 @@ type Filter = "all" | "active";
 export default function App() {
   const { quakes, status, lastUpdated, newIds, refresh } = useEarthquakes();
   const now = Date.now();
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // En teléfono arranca plegado (se ve el mapa); en escritorio, desplegado.
   const [viewMode, setViewMode] = useState<"area" | "shakemap">("shakemap");
